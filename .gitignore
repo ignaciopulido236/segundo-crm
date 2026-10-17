@@ -1,0 +1,9 @@
+/build/bin/
+/frontend/node_modules/
+/frontend/dist/
+*.exe
+*.test
+/frontend/coverage/
+
+*.syso
+/frontend/package.json.md5
