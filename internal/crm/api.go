@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"regexp"
 	"strings"
@@ -166,8 +167,11 @@ func validate(data map[string]string, create bool) error {
 		if k == "nombre" && strings.TrimSpace(v) == "" {
 			return errors.New("Nombre obligatorio")
 		}
-		if k == "email" && v != "" && !emailPattern.MatchString(v) {
-			return errors.New("Email inválido")
+		if k == "email" && v != "" {
+			parsed, err := mail.ParseAddress(v)
+			if err != nil || parsed.Address != v || !emailPattern.MatchString(v) {
+				return errors.New("Email inválido")
+			}
 		}
 		if k == "estado" && !states[v] {
 			return errors.New("Estado inválido")

@@ -21,17 +21,17 @@ export default function App({api=bridge}:{api?:Bridge}) {
  },[api,query,state,offset]);
  useEffect(()=>{let active=true;api.Configuration().then(c=>{if(active){setConfig(c);setURL(c.url);setSettings(!c.configured);if(c.problem)setError(c.problem);}}).catch(e=>{if(active)setError(message(e));});return()=>{active=false;};},[api]);
  useEffect(()=>{if(config?.configured)void refresh();return()=>{seq.current++;};},[config,refresh]);
- useEffect(()=>{const handle=(e:KeyboardEvent)=>{if(e.ctrlKey&&e.key.toLowerCase()==='k'){e.preventDefault();search.current?.focus();}};window.addEventListener('keydown',handle);return()=>window.removeEventListener('keydown',handle);},[]);
+ useEffect(()=>{const handle=(e:KeyboardEvent)=>{if(e.ctrlKey&&e.key.toLowerCase()==='k'){e.preventDefault();if(!panel.current&&!dialog.current?.open)search.current?.focus();}};window.addEventListener('keydown',handle);return()=>window.removeEventListener('keydown',handle);},[]);
  useEffect(()=>{if(confirm){dialog.current?.showModal();dialog.current?.querySelector<HTMLButtonElement>('button')?.focus();}else dialog.current?.close();},[confirm]);
  useEffect(()=>{if(draft){returnFocus.current=document.activeElement as HTMLElement;panel.current?.querySelector<HTMLElement>('input,button')?.focus();}else returnFocus.current?.focus();},[!!draft]);
  const guard=(run:()=>void)=>{if(busy)return;if(dirty)setConfirm({text:'Hay cambios sin guardar. ¿Quieres descartarlos?',run});else run();};
- const close=()=>guard(()=>{detailSeq.current++;setDraft(null);setSelected(null);setEditing(false);});
+ const close=()=>guard(()=>{detailSeq.current++;setOpening(false);setDraft(null);setSelected(null);setEditing(false);});
  const open=async(c:Client)=>{
   const n=++detailSeq.current;setOpening(true);setError('');
   try{const fresh=await api.Get(c.id);if(n!==detailSeq.current)return;setSelected(fresh);setDraft(toDraft(fresh));setOriginal(toDraft(fresh));setEditing(false);}
   catch(e){if(n===detailSeq.current)setError(message(e));}finally{if(n===detailSeq.current)setOpening(false);}
  };
- const create=()=>guard(()=>{detailSeq.current++;setSelected(null);setDraft(empty());setOriginal(empty());setEditing(true);setError('');});
+ const create=()=>guard(()=>{detailSeq.current++;setOpening(false);setSelected(null);setDraft(empty());setOriginal(empty());setEditing(true);setError('');});
  const edit=async()=>{if(!selected||busy)return;const id=selected.id,n=++detailSeq.current;setOpening(true);try{const fresh=await api.Get(id);if(n!==detailSeq.current)return;setSelected(fresh);setDraft(toDraft(fresh));setOriginal(toDraft(fresh));setEditing(true);}catch(e){if(n===detailSeq.current)setError(message(e));}finally{if(n===detailSeq.current)setOpening(false);}};
  const save=async()=>{
   if(locked.current||!draft)return;locked.current=true;setBusy(true);setError('');setNotice('');
@@ -47,9 +47,9 @@ export default function App({api=bridge}:{api?:Bridge}) {
   try{await api.Delete(c.id);if(selected?.id===c.id){setDraft(null);setSelected(null);}setNotice('Cliente eliminado correctamente.');if(offset>0&&page.data.length===1)setOffset(offset-50);else await refresh();}
   catch(e){setError(message(e));}finally{locked.current=false;setBusy(false);}
  })();}}));
- const configure=async()=>{if(locked.current)return;locked.current=true;setBusy(true);setError('');try{await api.Configure(url,key);setKey('');const c=await api.Configuration();detailSeq.current++;setDraft(null);setSelected(null);setOffset(0);setPage({data:[],meta:{total:0,limit:50,offset:0}});setConfig(c);setSettings(false);setNotice('Conexión verificada y guardada.');}catch(e){setError(message(e));}finally{locked.current=false;setBusy(false);}};
+ const configure=async()=>{if(locked.current)return;locked.current=true;setBusy(true);setError('');try{await api.Configure(url,key);setKey('');const c=await api.Configuration();detailSeq.current++;setOpening(false);setDraft(null);setSelected(null);setOffset(0);setPage({data:[],meta:{total:0,limit:50,offset:0}});setConfig(c);setSettings(false);setNotice('Conexión verificada y guardada.');}catch(e){setError(message(e));}finally{locked.current=false;setBusy(false);}};
  return <div className="shell">
-  <aside className="sidebar"><div className="brand"><div className="brandMark"><Users size={23}/></div><span>Primer<span className="brandLight">CRM</span></span></div><span className="navLabel">ESPACIO DE TRABAJO</span><button className={!settings?'nav active':'nav'} onClick={()=>{if(config?.configured)guard(()=>setSettings(false));}}><Users size={18}/>Clientes</button><button className={settings?'nav active':'nav'} disabled={busy} onClick={()=>guard(()=>{detailSeq.current++;setDraft(null);setSelected(null);setSettings(true);setKey('');})}><Settings size={18}/>Configuración</button><div className="sidebarFoot"><ShieldCheck size={18}/><span>Conexión privada<br/><small>Google Sheets · HTTPS</small></span></div></aside>
+  <aside className="sidebar"><div className="brand"><div className="brandMark"><Users size={23}/></div><span>Primer<span className="brandLight">CRM</span></span></div><span className="navLabel">ESPACIO DE TRABAJO</span><button className={!settings?'nav active':'nav'} onClick={()=>{if(config?.configured)guard(()=>setSettings(false));}}><Users size={18}/>Clientes</button><button className={settings?'nav active':'nav'} disabled={busy} onClick={()=>guard(()=>{detailSeq.current++;setOpening(false);setDraft(null);setSelected(null);setSettings(true);setKey('');})}><Settings size={18}/>Configuración</button><div className="sidebarFoot"><ShieldCheck size={18}/><span>Conexión privada<br/><small>Google Sheets · HTTPS</small></span></div></aside>
   <main><header><div className="breadcrumb">Espacio de trabajo <span>/</span> {settings?'Configuración':'Clientes'}</div><span className="connection"><i className={config?.configured?'connected':''}/>{config?.configured?'Configurado':'Sin conexión configurada'}</span></header>
   <div className="content"><div className="pageHeading"><div><span className="eyebrow">RELACIONES QUE IMPORTAN</span><h1>{settings?'Tu conexión':'Clientes'}</h1><p>{settings?'Conecta tu aplicación con la base de clientes de Google Sheets.':'Toda la información de tus clientes, en un solo lugar.'}</p></div>{!settings&&<button className="primary" onClick={create} disabled={busy||!config?.configured||opening}><Plus size={18}/>Nuevo cliente</button>}</div>
   {error&&<div role="alert" className="alert error">{error}<button aria-label="Cerrar error" onClick={()=>setError('')}><X size={16}/></button></div>}
